@@ -40,7 +40,7 @@
   --map-halo: rgba(255, 255, 255, 0.9);
   --map-sea: #dbe9f6;
   --map-land: #f3f1ea;
-  --map-border: #b9b4a6;
+  --map-border: #8c8574;
   --map-ring: #6b7a8c;
   --map-night: #0a1430;
   --map-night-strength: 1;
@@ -66,11 +66,11 @@
     --map-halo: rgba(18, 22, 28, 0.9);
     --map-sea: #0f1d2c;
     --map-land: #263241;
-    --map-border: #3d4a5c;
+    --map-border: #6b7d94;
     --map-ring: #7d8da3;
     --map-night: #000000;
-    /* black on a dark map needs more of it to show */
-    --map-night-strength: 1.7;
+    /* black on a dark map needs a little more of it to show */
+    --map-night-strength: 1.3;
     color-scheme: dark;
   }
 }
@@ -132,8 +132,10 @@ h1 { margin: 0; font-size: 20px; }
 .chk { font-size: 13px; color: var(--dim); display: inline-flex; align-items: center; gap: 4px; }
 .spacer { flex: 1; }
 .cols-wrap { position: relative; }
+/* Fixed, placed by viewer.js (placeColsMenu): the statistics column it opens
+   from scrolls, and would cut an absolute menu off after its first row. */
 .cols-menu {
-  position: absolute; z-index: 20; top: 110%; left: 0; min-width: 160px;
+  position: fixed; z-index: 20; min-width: 160px; overflow: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
   padding: 6px 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
   display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px;
@@ -161,6 +163,12 @@ h1 { margin: 0; font-size: 20px; }
   font-size: 12px; font-weight: 600; color: var(--dim); padding: 6px 6px 2px; cursor: pointer; user-select: none;
 }
 .hrow > div:hover { color: var(--accent); }
+.hrow > div { position: relative; }
+/* The grip on the right edge of every header: drag to resize, double-click to fit. */
+.rz { position: absolute; top: 0; right: 0; bottom: 0; width: 7px; cursor: col-resize; touch-action: none; }
+.rz::after { content: ""; position: absolute; top: 5px; bottom: 3px; right: 2px; border-right: 1px solid var(--line); }
+.rz:hover::after, .resizing .rz::after { border-color: var(--accent); }
+body.resizing, body.resizing * { cursor: col-resize !important; user-select: none; }
 .hrow .sorted { color: var(--accent); }
 .frow > div { padding: 2px 3px 6px; overflow: visible; }
 .frow input {
@@ -170,6 +178,26 @@ h1 { margin: 0; font-size: 20px; }
 .frow input:focus { outline: none; border-color: var(--accent); }
 .frow input.active { border-color: var(--accent); background: var(--accent-bg); }
 .frow input.bad { border-color: var(--del); }
+.fpick { display: flex; gap: 2px; }
+.fpick .pick { padding: 0 4px; font-size: 11px; line-height: 1; border-radius: 4px; }
+.log-pal {
+  position: fixed; z-index: 30; overflow: auto; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); padding: 4px; font-size: 13px;
+}
+.log-pal[hidden] { display: none; }
+.lp-head { padding: 4px 6px 6px; color: var(--dim); border-bottom: 1px solid var(--line); margin-bottom: 2px; }
+.lp-head b { color: var(--text); }
+.lp-row, .lp-any {
+  display: grid; grid-template-columns: 1fr auto auto 3.5em; gap: 10px; width: 100%; text-align: left;
+  border: none; border-radius: 4px; background: none; padding: 3px 6px; font: 12px var(--mono);
+}
+.lp-row:hover, .lp-any:hover { background: var(--accent-bg); }
+.lp-row.on { background: var(--accent-bg); color: var(--accent); font-weight: 700; }
+.lp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-my, .lp-date { color: var(--dim); }
+.lp-n { text-align: right; font-weight: 600; }
+.lp-any { display: block; margin-top: 2px; border-top: 1px solid var(--line); border-radius: 0 0 4px 4px; color: var(--accent); }
+.cols-menu .reset-w { grid-column: 1 / -1; margin-top: 6px; }
 .gbody { position: relative; width: max-content; min-width: 100%; }
 .gwin { position: absolute; left: 0; right: 0; top: 0; }
 .drow { height: 26px; align-items: center; font: 13px var(--mono); border-bottom: 1px solid transparent; }
@@ -202,6 +230,7 @@ h1 { margin: 0; font-size: 20px; }
 .seg button:last-child { border-radius: 0 6px 6px 0; }
 .seg button.on { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); position: relative; }
 .map-time { display: inline-flex; align-items: center; gap: 4px; }
+.map-exp { display: inline-flex; align-items: center; gap: 4px; color: var(--dim); }
 .map-time input[type="range"] { width: 100px; }
 .map-time-lbl { font: 12px var(--mono); color: var(--dim); min-width: 3em; }
 .map-area {
@@ -299,7 +328,9 @@ h1 { margin: 0; font-size: 20px; }
     Clicking a number in the statistics sets the matching filters.
     The address bar keeps the filters, so a link opens the same view.
     The map shows the QSOs the filters leave: click a point for its QSOs, click a row of the log
-    to mark its point and set the grey line to its time.
+    to mark its point and set the grey line to its time. <i>In view</i> ADIF/CSV downloads the QSOs whose points are
+    on the map right now. Drag the edge of a column header to resize it; double-click the edge to fit it.
+    The ▾ in the Log filter lists the logs it matches.
   </div>
 </header>
 <section class="mapbox" id="mapBox" aria-label="Map">
@@ -317,6 +348,7 @@ h1 { margin: 0; font-size: 20px; }
     <label class="chk" title="Locator for the logs that have none (they are drawn in the middle of the own call's country)">QTH
       <input type="text" id="mapMyloc" size="7" maxlength="8" placeholder="locator" spellcheck="false"></label>
     <button type="button" id="mapFit" title="Fit the map to the QSOs shown">⤢</button>
+    <span class="map-exp" id="mapExp">in view <button type="button" id="mapAdif">ADIF</button><button type="button" id="mapCsv">CSV</button></span>
     <span class="spacer"></span>
     <button type="button" id="mapFold"></button>
   </div>
@@ -335,8 +367,9 @@ h1 { margin: 0; font-size: 20px; }
   </div>
   <div class="msg" id="msg" hidden></div>
 </main>
+<div class="log-pal" id="logPal" hidden></div>
 <footer class="foot">
-  WIFILT log viewer · build c3b57485 ·
+  WIFILT log viewer · build a52ddc5f ·
   <a href="https://github.com/ok1hra/wifilt/blob/main/SOFTWARE.md#git-log-sync" target="_blank" rel="noopener">guide</a>
 </footer>
 <script>
@@ -1267,7 +1300,9 @@ h1 { margin: 0; font-size: 20px; }
  * between them, the grey line. Two views:
  *
  *   - Map: Leaflet over OpenStreetMap tiles, fitted to the filtered QSOs, so a
- *     VHF contest shows its corner of Europe, not the world;
+ *     VHF contest shows its corner of Europe, not the world. The tiles draw
+ *     country borders too faintly to read under the lines, so the
+ *     world-atlas borders go on top of them;
  *   - Azimuthal: azimuthal equidistant around one transmitter site (d3-geo
  *     over world-atlas outlines; raster tiles only come in Mercator), the
  *     furthest QSO near the rim.
@@ -1279,6 +1314,7 @@ h1 { margin: 0; font-size: 20px; }
  * The view (which map, lines, labels, grey line and its time, the centre, the
  * locator for logs without one) is kept in the address by viewer.js through
  * writeParams/readParams. Folding the map away is personal: localStorage.
+ * "In view: ADIF / CSV" hands viewer.js the QSOs whose points are on screen.
  */
 (function () {
 
@@ -1307,7 +1343,7 @@ h1 { margin: 0; font-size: 20px; }
   var DETAIL_KM = 3000;
   var MAX_POPUP_ROWS = 20;
 
-  var DEFAULTS = { view: 'merc', lines: true, labels: 'dot', gray: true, grayAt: null, site: '', myloc: '' };
+  var DEFAULTS = { view: 'merc', lines: true, labels: 'call', gray: true, grayAt: null, site: '', myloc: '' };
   var st = Object.assign({}, DEFAULTS);
   var opts = {}, logsById = {}, rows = [], rowsKey = null, agg = null, needFit = true;
   var times = null;          // {min, max} ms of the filtered rows, for the slider
@@ -1379,10 +1415,12 @@ h1 { margin: 0; font-size: 20px; }
   }
 
   // How dark the night is where the sun stands alt degrees high: nothing by
-  // day, a clear step at the horizon (that is the grey line), then deeper to
-  // astronomical night at -18.
+  // day, a visible step at the horizon (that is the grey line), then a little
+  // deeper to astronomical night at -18 -- never so dark that the map under
+  // it cannot be read.
+  var NIGHT_EDGE = 0.07, NIGHT_DEEP = 0.15;
   function nightAlpha(alt) {
-    return alt >= 0 ? 0 : Math.min(0.85, (0.12 + 0.36 * Math.min(1, -alt / 18)) * colors.nightStrength);
+    return alt >= 0 ? 0 : (NIGHT_EDGE + NIGHT_DEEP * Math.min(1, -alt / 18)) * colors.nightStrength;
   }
 
   // ── data ────────────────────────────────────────────────────────────────────
@@ -1597,6 +1635,10 @@ h1 { margin: 0; font-size: 20px; }
       maxZoom: 18, className: 'osm-tiles',
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     }).addTo(lmap);
+    lmap.createPane('borders').style.zIndex = 240;
+    lmap.getPane('borders').style.pointerEvents = 'none';
+    lay.borderRenderer = L.canvas({ pane: 'borders' });
+    lmap.on('zoomend', drawBorders);
     lmap.createPane('night').style.zIndex = 250;
     lmap.createPane('labels').style.zIndex = 450;
     lmap.getPane('night').style.pointerEvents = 'none';
@@ -1607,6 +1649,38 @@ h1 { margin: 0; font-size: 20px; }
     lmap.on('popupopen', function (e) { wirePopup(e.popup.getElement()); });
     lmap.setView([30, 10], 2);
     leafletState = 'ready';
+    loadScript(LIB.d3[2])
+      .then(function () { return loadJson(LIB.atlas110); })
+      .then(function (topo) { az.geo110 = az.geo110 || toGeo(topo); drawBorders(); })
+      .catch(function () { /* the tiles have borders of their own, only fainter */ });
+  }
+
+  function shiftGeo(g, dx) {
+    return { type: g.type, coordinates: g.coordinates.map(function (line) {
+      return line.map(function (p) { return [p[0] + dx, p[1]]; });
+    }) };
+  }
+
+  // Coarse borders for the world, fine ones from zoom 3 on. The coarse ones
+  // are drawn three times, a world apart, because the points sit on
+  // longitudes unwrapped round the busiest site and may be past +-180.
+  var FINE_ZOOM = 3;
+  function drawBorders() {
+    if (!lmap || !az.geo110) return;
+    readColors();
+    var fine = lmap.getZoom() >= FINE_ZOOM;
+    if (fine) want50();
+    var geo = fine && az.geo50 ? az.geo50 : az.geo110, key = geo === az.geo50 ? '50' : '110';
+    if (lay.borders && lay.bordersKey === key && lay.bordersColor === colors.border) return;
+    if (lay.borders) lmap.removeLayer(lay.borders);
+    lay.bordersKey = key;
+    lay.bordersColor = colors.border;
+    lay.borders = L.geoJSON({ type: 'FeatureCollection', features: (key === '110' ? [-360, 0, 360] : [0]).map(function (dx) {
+      return { type: 'Feature', properties: {}, geometry: shiftGeo(geo.borders, dx) };
+    }) }, {
+      pane: 'borders', renderer: lay.borderRenderer, interactive: false,
+      style: function () { return { color: colors.border, weight: 1, opacity: 0.9 }; },
+    }).addTo(lmap);
   }
 
   function renderLeaflet() {
@@ -1686,7 +1760,7 @@ h1 { margin: 0; font-size: 20px; }
   function want50() {
     if (az.geo50 || az.loading50) return;
     az.loading50 = true;
-    loadJson(LIB.atlas50).then(function (topo) { az.geo50 = toGeo(topo); drawAz(); })
+    loadJson(LIB.atlas50).then(function (topo) { az.geo50 = toGeo(topo); drawAz(); drawBorders(); })
       .catch(function () { /* the 110m outlines stay; it is only detail */ })
       .then(function () { az.loading50 = false; });
   }
@@ -1734,6 +1808,7 @@ h1 { margin: 0; font-size: 20px; }
     var radiusKm = Math.max(20, Math.min(HALF_WORLD_KM, Math.max(200, Math.min(HALF_WORLD_KM, fitKm)) / az.zoom));
     az.radiusKm = radiusKm;
     var ang = radiusKm / EARTH_KM;
+    az.view = { c: cll, ang: ang };
     var proj = d3.geoAzimuthalEquidistant().rotate([-center.lon, -center.lat]).translate([cx, cy])
       .scale(R / ang).clipAngle(Math.min(179.9, ang * R2D)).precision(0.3);
     var path = d3.geoPath(proj, ctx);
@@ -1743,13 +1818,13 @@ h1 { margin: 0; font-size: 20px; }
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, 2 * Math.PI);
     ctx.fillStyle = colors.sea; ctx.fill();
     ctx.beginPath(); path(geo.land); ctx.fillStyle = colors.land; ctx.fill();
-    ctx.beginPath(); path(geo.borders); ctx.strokeStyle = colors.border; ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.beginPath(); path(geo.borders); ctx.strokeStyle = colors.border; ctx.lineWidth = 0.9; ctx.stroke();
 
     if (st.gray) {
       var sun = MapCore.subsolar(nightDate()), anti = [sun.lon + 180, -sun.lat], rgb = nightRgb();
       // Night, then civil, nautical, astronomical: each a smaller cap around
       // the point opposite the sun, laid one over another.
-      [[0, 0.12], [6, 0.12], [12, 0.12], [18, 0.12]].forEach(function (d) {
+      [[0, NIGHT_EDGE], [6, NIGHT_DEEP / 3], [12, NIGHT_DEEP / 3], [18, NIGHT_DEEP / 3]].forEach(function (d) {
         ctx.beginPath();
         path(d3.geoCircle().center(anti).radius(90 - d[0])());
         ctx.fillStyle = 'rgba(' + rgb.join(',') + ',' + d[1] * colors.nightStrength + ')';
@@ -1847,6 +1922,39 @@ h1 { margin: 0; font-size: 20px; }
     pop.style.top = Math.max(4, Math.min(e.offsetY + 12, box.clientHeight - pop.offsetHeight - 4)) + 'px';
     pop.querySelector('.az-close').addEventListener('click', closeAzPopup);
     wirePopup(pop);
+  }
+
+  // ── what is in view ─────────────────────────────────────────────────────────
+
+  // The rows behind every point on screen now, in either view. A QSO with no
+  // place is never in view.
+  function visibleRows() {
+    if (!agg || folded) return [];
+    var inView;
+    if (st.view === 'merc') {
+      if (!lmap) return [];
+      var b = lmap.getBounds();
+      inView = function (p) {
+        return [-360, 0, 360].some(function (dx) { return b.contains([p.lat, p.lonU + dx]); });
+      };
+    } else {
+      if (!az.view || az.state !== 'ready') return [];
+      inView = function (p) { return d3.geoDistance(az.view.c, [p.lon, p.lat]) <= az.view.ang + 1e-9; };
+    }
+    var out = [];
+    agg.points.forEach(function (p) { if (inView(p)) out.push.apply(out, p.rows); });
+    return out;
+  }
+
+  function exportView(ext) {
+    var list = visibleRows();
+    if (!list.length) {
+      $('mapMsg').hidden = false;
+      $('mapMsg').textContent = 'No QSO in view on the map.';
+      setTimeout(function () { $('mapMsg').hidden = true; }, 2500);
+      return;
+    }
+    if (opts.onExport) opts.onExport(list, ext);
   }
 
   // ── fitting ─────────────────────────────────────────────────────────────────
@@ -1996,6 +2104,12 @@ h1 { margin: 0; font-size: 20px; }
       if (opts.onState) opts.onState();
     });
     $('mapFit').addEventListener('click', function () { needFit = true; fit(); });
+    $('mapAdif').addEventListener('click', function () { exportView('adi'); });
+    $('mapCsv').addEventListener('click', function () { exportView('csv'); });
+    $('mapExp').addEventListener('mouseenter', function () {
+      var n = visibleRows().length;
+      $('mapExp').title = 'Download the ' + n + ' QSO whose points are in view on the map';
+    });
     $('mapFold').addEventListener('click', function () { setFolded(!folded); });
     $('azCanvas').addEventListener('click', onAzClick);
     $('azCanvas').addEventListener('mousemove', function (e) {
@@ -2071,7 +2185,7 @@ h1 { margin: 0; font-size: 20px; }
     readParams: function (p) {
       st.view = p.get('map') === 'az' ? 'az' : 'merc';
       st.lines = p.get('lines') !== '0';
-      st.labels = p.get('lbl') === 'call' ? 'call' : 'dot';
+      st.labels = p.get('lbl') === 'dot' ? 'dot' : 'call';
       st.gray = p.get('gl') !== '0';
       var t = Date.parse(p.get('glt') || '');
       st.grayAt = isNaN(t) ? null : t;
@@ -2085,7 +2199,8 @@ h1 { margin: 0; font-size: 20px; }
         view: st.view, leaflet: leafletState, az: az.state, folded: folded,
         sites: agg ? agg.sites.length : 0, points: agg ? agg.points.length : 0, links: agg ? agg.links.length : 0,
         bounds: lmap ? lmap.getBounds() : null, zoom: lmap ? lmap.getZoom() : null, azRadiusKm: az.radiusKm,
-        grayAt: st.grayAt, focusKey: focusKey,
+        grayAt: st.grayAt, focusKey: focusKey, inView: visibleRows().length,
+        borders: lay.bordersKey || null,
       };
     },
   };
@@ -2108,8 +2223,9 @@ h1 { margin: 0; font-size: 20px; }
  *   - QSOs imported from old ADIF logs carry no DXCC data; it is looked up here
  *     with the same dxcc.js the interface uses, for display only;
  *   - filters, sorting and "show deleted" live in the address (#...), so a
- *     link opens the same view; which columns are hidden is personal and stays
- *     in this browser;
+ *     link opens the same view; which columns are hidden, and how wide they
+ *     are, is personal and stays in this browser;
+ *   - the ▾ in the Log filter lists the logs it matches, with their QSO counts;
  *   - ADIF/CSV export of the rows shown, through log-export.js -- the very
  *     file the interface exports with, so the two can never disagree;
  *   - a map of the rows shown beside the statistics (viewer-map.js); clicking
@@ -2121,6 +2237,8 @@ h1 { margin: 0; font-size: 20px; }
 
   var ROW_H = 26;
   var COLS_KEY = 'wifilt-log-viewer-cols';
+  var WIDTHS_KEY = 'wifilt-log-viewer-widths';
+  var MIN_W = 36, MAX_W = 800;
   var MODE_FOLD = { 'CW-R': 'CW', 'CWR': 'CW', 'USB': 'SSB', 'LSB': 'SSB', 'RTTY-R': 'RTTY', 'RTTYR': 'RTTY' };
   var BAND_ORDER = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '4m',
                     '2m', '1.25m', '70cm', '33cm', ''];
@@ -2158,6 +2276,7 @@ h1 { margin: 0; font-size: 20px; }
   var sort = { k: 'when', dir: -1 };
   var showDeleted = false;
   var hidden = loadHidden();
+  var widths = loadWidths();     // k -> px, only the columns someone resized
   var logsById = {};
   var fileInfo = null;
   var selected = null;   // the row last clicked, marked in the table and on the map
@@ -2335,6 +2454,7 @@ h1 { margin: 0; font-size: 20px; }
                                                          : shown.length + ' of ' + all.length + ' rows';
     $('gbody').style.height = (shown.length * ROW_H) + 'px';
     renderRows(true);
+    if (!$('logPal').hidden) renderLogPal();
     showMsg(all.length && !shown.length ? 'No QSO matches these filters.' : '');
   }
 
@@ -2412,8 +2532,10 @@ h1 { margin: 0; font-size: 20px; }
 
   function visibleCols() { return COLS.filter(function (c) { return !hidden[c.k]; }); }
 
+  function colW(c) { return widths[c.k] || c.w; }
+
   function template() {
-    return visibleCols().map(function (c) { return c.w + 'px'; }).join(' ');
+    return visibleCols().map(function (c) { return colW(c) + 'px'; }).join(' ');
   }
 
   function renderHeader() {
@@ -2422,11 +2544,17 @@ h1 { margin: 0; font-size: 20px; }
       '<div class="grow hrow" style="grid-template-columns:' + tpl + '">' + cols.map(function (c) {
         var mark = sort.k === c.k ? (sort.dir < 0 ? ' ▼' : ' ▲') : '';
         return '<div data-sort="' + c.k + '" class="' + (c.num ? 'num ' : '') + (mark ? 'sorted' : '') +
-               '" title="Sort by ' + esc(c.t) + '">' + esc(c.t) + mark + '</div>';
+               '" title="Sort by ' + esc(c.t) + '">' + esc(c.t) + mark +
+               '<span class="rz" data-rz="' + c.k + '" title="Drag to resize, double-click to fit"></span></div>';
       }).join('') + '</div>' +
       '<div class="grow frow" style="grid-template-columns:' + tpl + '">' + cols.map(function (c) {
-        return '<div><input data-k="' + c.k + '" value="' + esc(filters[c.k] || '') + '" placeholder="' +
-               (c.num ? '>, <, a-b' : 'filter') + '" aria-label="Filter ' + esc(c.t) + '" spellcheck="false"></div>';
+        var inp = '<input data-k="' + c.k + '" value="' + esc(filters[c.k] || '') + '" placeholder="' +
+                  (c.num ? '>, <, a-b' : 'filter') + '" aria-label="Filter ' + esc(c.t) + '" spellcheck="false">';
+        if (c.k === 'log') {
+          return '<div class="fpick">' + inp + '<button type="button" class="pick" title="Choose a log" ' +
+                 'aria-label="Choose a log" aria-expanded="' + !$('logPal').hidden + '">▾</button></div>';
+        }
+        return '<div>' + inp + '</div>';
       }).join('') + '</div>';
     renderFilterState();
   }
@@ -2548,9 +2676,9 @@ h1 { margin: 0; font-size: 20px; }
     return COLS.some(function (c) { return !!compiled[c.k]; });
   }
 
-  function rowsForExport() {
+  function rowsForExport(list) {
     // The order of the log, not of the screen: by time.
-    return shown.slice().sort(function (a, b) { return a.when < b.when ? -1 : a.when > b.when ? 1 : 0; })
+    return (list || shown).slice().sort(function (a, b) { return a.when < b.when ? -1 : a.when > b.when ? 1 : 0; })
       .map(function (r) { return Object.assign({}, r.q, { dxcc: r.q.dxcc || (Object.keys(r.d).length ? r.d : null) }); });
   }
 
@@ -2564,8 +2692,143 @@ h1 { margin: 0; font-size: 20px; }
     setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
   }
 
-  function exportName(ext) {
-    return 'wifilt-log-' + stamp() + (anyFilter() ? '-filtered' : '') + '.' + ext;
+  function exportName(ext, tag) {
+    return 'wifilt-log-' + stamp() + (anyFilter() ? '-filtered' : '') + (tag || '') + '.' + ext;
+  }
+
+  function exportRows(list, ext, tag) {
+    var qsos = rowsForExport(list);
+    if (ext === 'adi') {
+      download(LogExport.adifFromQsos(qsos, function (q) { return logsById[q.logId] || {}; }),
+               exportName('adi', tag), 'text/plain;charset=utf-8;');
+    } else {
+      download(LogExport.csvFromQsos(qsos), exportName('csv', tag), 'text/csv;charset=utf-8;');
+    }
+  }
+
+  // ── column widths: drag the edge of a header, double-click it to fit ──────
+
+  function loadWidths() {
+    try { return JSON.parse(localStorage.getItem(WIDTHS_KEY) || '{}') || {}; } catch (_) { return {}; }
+  }
+
+  function saveWidths() {
+    try { localStorage.setItem(WIDTHS_KEY, JSON.stringify(widths)); } catch (_) {}
+  }
+
+  // While dragging, only the template changes: no row is built again.
+  function setTemplate() {
+    var tpl = template();
+    document.querySelectorAll('#grid .grow').forEach(function (g) { g.style.gridTemplateColumns = tpl; });
+  }
+
+  var drag = null, justResized = false;
+
+  function onResizeDown(e) {
+    var h = e.target.closest('.rz');
+    if (!h) return;
+    e.preventDefault();
+    var k = h.getAttribute('data-rz');
+    drag = { k: k, x: e.clientX, w: colW(COL[k]) };
+    if (h.setPointerCapture) h.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+  }
+
+  function onResizeMove(e) {
+    if (!drag) return;
+    widths[drag.k] = Math.round(Math.max(MIN_W, Math.min(MAX_W, drag.w + e.clientX - drag.x)));
+    setTemplate();
+  }
+
+  function onResizeUp() {
+    if (!drag) return;
+    drag = null;
+    // The click that ends a drag on a header must not sort by it.
+    justResized = true;
+    setTimeout(function () { justResized = false; }, 0);
+    document.body.classList.remove('resizing');
+    saveWidths();
+  }
+
+  // As wide as the longest value among the rows shown (the first 5000).
+  var measure = null;
+  function fitColumn(k) {
+    var c = COL[k];
+    measure = measure || document.createElement('canvas').getContext('2d');
+    var mono = getComputedStyle(document.body).getPropertyValue('--mono');
+    measure.font = '600 12px ' + getComputedStyle(document.body).fontFamily;
+    var w = measure.measureText(c.t + ' ▼').width;
+    measure.font = (c.cls === 'c-call' ? '700 ' : '') + '13px ' + mono;
+    for (var i = 0; i < shown.length && i < 5000; i++) w = Math.max(w, measure.measureText(String(shown[i][k])).width);
+    widths[k] = Math.round(Math.max(MIN_W, Math.min(MAX_W, w + 18)));
+    saveWidths();
+    setTemplate();
+  }
+
+  // ── the log palette: which logs the Log filter matches, how big each is ───
+
+  // Every log the other filters leave QSOs in, with how many; narrowed by
+  // the text in the Log filter. An exact pick (=name) lists them all, so
+  // another one can be picked.
+  function logChoices() {
+    var tests = COLS.filter(function (c) { return c.k !== 'log' && compiled[c.k]; })
+                    .map(function (c) { return compiled[c.k]; });
+    var by = {}, list = [];
+    all.forEach(function (r) {
+      if (r.deleted && !showDeleted) return;
+      for (var i = 0; i < tests.length; i++) if (!tests[i](r)) return;
+      var e = by[r.log];
+      if (!e) { e = by[r.log] = { name: r.log, n: 0, from: '', my: {} }; list.push(e); }
+      e.n++;
+      if (r.date && (!e.from || r.date < e.from)) e.from = r.date;
+      if (r.my) e.my[r.my] = true;
+    });
+    var raw = String(filters.log || '').trim().toLowerCase();
+    var text = raw.charAt(0) === '=' ? '' : raw;
+    return {
+      text: text,
+      list: list.filter(function (e) { return !text || e.name.toLowerCase().indexOf(text) >= 0; })
+                .sort(function (a, b) { return a.from < b.from ? 1 : a.from > b.from ? -1 : 0; }),
+    };
+  }
+
+  function renderLogPal() {
+    var ch = logChoices(), list = ch.list, cur = String(filters.log || '').trim().toLowerCase();
+    var n = list.reduce(function (s, e) { return s + e.n; }, 0);
+    $('logPal').innerHTML =
+      '<div class="lp-head"><b>' + list.length + (list.length === 1 ? ' log' : ' logs') + '</b> · ' + n + ' QSO' +
+      (ch.text ? ' · matching “' + esc(ch.text) + '”' : '') + '</div>' +
+      '<div class="lp-list">' + list.map(function (e) {
+        return '<button type="button" class="lp-row' + (cur === '=' + e.name.toLowerCase() ? ' on' : '') +
+               '" data-log="' + esc(e.name) + '"><span class="lp-name">' + esc(e.name) + '</span>' +
+               '<span class="lp-my">' + esc(Object.keys(e.my).join(' ')) + '</span>' +
+               '<span class="lp-date">' + esc(e.from) + '</span><span class="lp-n">' + e.n + '</span></button>';
+      }).join('') + '</div>' +
+      (cur ? '<button type="button" class="lp-any" data-log="">Any log</button>' : '');
+    placeLogPal();
+  }
+
+  function placeLogPal() {
+    var cell = document.querySelector('.frow .fpick'), pal = $('logPal');
+    if (!cell) { closeLogPal(); return; }
+    var r = cell.getBoundingClientRect(), w = Math.min(460, window.innerWidth - 16);
+    pal.style.width = w + 'px';
+    pal.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) + 'px';
+    pal.style.top = (r.bottom + 2) + 'px';
+    pal.style.maxHeight = Math.max(160, window.innerHeight - r.bottom - 14) + 'px';
+  }
+
+  function openLogPal() {
+    $('logPal').hidden = false;
+    renderLogPal();
+    var b = document.querySelector('.frow .pick');
+    if (b) b.setAttribute('aria-expanded', 'true');
+  }
+
+  function closeLogPal() {
+    $('logPal').hidden = true;
+    var b = document.querySelector('.frow .pick');
+    if (b) b.setAttribute('aria-expanded', 'false');
   }
 
   // ── columns menu ────────────────────────────────────────────────────────────
@@ -2578,17 +2841,50 @@ h1 { margin: 0; font-size: 20px; }
     try { localStorage.setItem(COLS_KEY, JSON.stringify(hidden)); } catch (_) {}
   }
 
+  // Under the button, or above it when there is no room below.
+  function placeColsMenu() {
+    var m = $('colsMenu'), r = $('colsBtn').getBoundingClientRect();
+    var below = window.innerHeight - r.bottom - 12, above = r.top - 12;
+    m.style.left = Math.max(8, Math.min(r.left, window.innerWidth - m.offsetWidth - 8)) + 'px';
+    if (below >= m.scrollHeight || below >= above) {
+      m.style.top = (r.bottom + 4) + 'px'; m.style.bottom = '';
+      m.style.maxHeight = below + 'px';
+    } else {
+      m.style.top = ''; m.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+      m.style.maxHeight = above + 'px';
+    }
+  }
+
+  function closeColsMenu() {
+    $('colsMenu').hidden = true;
+    $('colsBtn').setAttribute('aria-expanded', 'false');
+  }
+
   function renderColsMenu() {
     $('colsMenu').innerHTML = COLS.map(function (c) {
       return '<label><input type="checkbox" data-col="' + c.k + '"' + (hidden[c.k] ? '' : ' checked') + '> ' + esc(c.t) + '</label>';
-    }).join('');
+    }).join('') + '<button type="button" class="reset-w" id="resetWidths"' + (Object.keys(widths).length ? '' : ' disabled') +
+      '>Reset column widths</button>';
   }
 
   // ── wiring ──────────────────────────────────────────────────────────────────
 
   function wire() {
     $('ghead').addEventListener('input', function (e) { if (e.target.matches('.frow input')) onFilterInput(e); });
+    $('ghead').addEventListener('pointerdown', onResizeDown);
+    $('ghead').addEventListener('pointermove', onResizeMove);
+    $('ghead').addEventListener('pointerup', onResizeUp);
+    $('ghead').addEventListener('pointercancel', onResizeUp);
+    $('ghead').addEventListener('dblclick', function (e) {
+      var h = e.target.closest('.rz');
+      if (h) fitColumn(h.getAttribute('data-rz'));
+    });
     $('ghead').addEventListener('click', function (e) {
+      if (e.target.closest('.pick')) {
+        if ($('logPal').hidden) openLogPal(); else closeLogPal();
+        return;
+      }
+      if (justResized || e.target.closest('.rz')) return;
       var h = e.target.closest('[data-sort]');
       if (!h) return;
       var k = h.getAttribute('data-sort');
@@ -2625,10 +2921,33 @@ h1 { margin: 0; font-size: 20px; }
       var m = $('colsMenu');
       m.hidden = !m.hidden;
       $('colsBtn').setAttribute('aria-expanded', String(!m.hidden));
-      if (!m.hidden) renderColsMenu();
+      if (!m.hidden) { renderColsMenu(); placeColsMenu(); }
     });
+    // A fixed menu would stay put while its button moves away.
+    document.querySelector('.upper > .top').addEventListener('scroll', closeColsMenu, { passive: true });
+    window.addEventListener('resize', closeColsMenu);
     document.addEventListener('click', function (e) {
-      if (!e.target.closest('.cols-wrap')) { $('colsMenu').hidden = true; $('colsBtn').setAttribute('aria-expanded', 'false'); }
+      if (!e.target.closest('.cols-wrap')) closeColsMenu();
+      if (!e.target.closest('#logPal') && !e.target.closest('.pick') && !e.target.closest('.fpick input')) closeLogPal();
+    });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLogPal(); });
+    $('logPal').addEventListener('click', function (e) {
+      var b = e.target.closest('[data-log]');
+      if (!b) return;
+      var name = b.getAttribute('data-log');
+      setFilter('log', name ? '=' + name : '');
+      closeLogPal();
+      apply();
+    });
+    $('grid').addEventListener('scroll', function () { if (!$('logPal').hidden) placeLogPal(); }, { passive: true });
+    window.addEventListener('resize', function () { if (!$('logPal').hidden) placeLogPal(); });
+    $('colsMenu').addEventListener('click', function (e) {
+      if (e.target.id !== 'resetWidths') return;
+      widths = {};
+      saveWidths();
+      e.target.disabled = true;
+      renderHeader();
+      renderRows(true);
     });
     $('colsMenu').addEventListener('change', function (e) {
       var k = e.target.getAttribute('data-col');
@@ -2643,13 +2962,8 @@ h1 { margin: 0; font-size: 20px; }
       $('help').hidden = !$('help').hidden;
       $('helpBtn').setAttribute('aria-expanded', String(!$('help').hidden));
     });
-    $('dlAdif').addEventListener('click', function () {
-      download(LogExport.adifFromQsos(rowsForExport(), function (q) { return logsById[q.logId] || {}; }),
-               exportName('adi'), 'text/plain;charset=utf-8;');
-    });
-    $('dlCsv').addEventListener('click', function () {
-      download(LogExport.csvFromQsos(rowsForExport()), exportName('csv'), 'text/csv;charset=utf-8;');
-    });
+    $('dlAdif').addEventListener('click', function () { exportRows(shown, 'adi'); });
+    $('dlCsv').addEventListener('click', function () { exportRows(shown, 'csv'); });
     window.addEventListener('hashchange', function () {
       if (!fileInfo) return;
       readHash();
@@ -2673,6 +2987,8 @@ h1 { margin: 0; font-size: 20px; }
   ViewerMap.init({
     onFilter: function (k, v) { setFilter(k, v); apply(); },
     onState: writeHash,
+    // The QSOs whose points are in view on the map, in the log's own format.
+    onExport: function (list, ext) { exportRows(list, ext, '-map'); },
   });
   wire();
   load();
